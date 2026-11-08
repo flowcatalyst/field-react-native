@@ -1,0 +1,65 @@
+{
+	"name": "@flowcatalyst/field-react-native",
+	"version": "0.1.0",
+	"description": "React Native (New Architecture) bridge over the Android FieldSession, with the key/store module and WebView bridge host for @flowcatalyst/field-js",
+	"license": "Apache-2.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/flowcatalyst/flowcatalyst.git",
+		"directory": "clients/field-react-native"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"main": "./lib/index.js",
+	"types": "./lib/index.d.ts",
+	"react-native": "./src/index.ts",
+	"exports": {
+		".": {
+			"react-native": "./src/index.ts",
+			"types": "./lib/index.d.ts",
+			"default": "./lib/index.js"
+		},
+		"./app.plugin": "./app.plugin.js",
+		"./app.plugin.js": "./app.plugin.js",
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"lib",
+		"src",
+		"android",
+		"ios",
+		"plugin",
+		"app.plugin.js",
+		"FlowcatalystFieldReactNative.podspec",
+		"README.md",
+		"!**/*.test.js",
+		"!android/src/test",
+		"!ios/Tests"
+	],
+	"codegenConfig": {
+		"name": "FcFieldSpec",
+		"type": "modules",
+		"jsSrcsDir": "src",
+		"android": {
+			"javaPackageName": "io.flowcatalyst.field"
+		}
+	},
+	"peerDependencies": {
+		"expo": ">=51",
+		"react": ">=18",
+		"react-native": ">=0.76",
+		"react-native-webview": ">=13"
+	},
+	"peerDependenciesMeta": {
+		"expo": {
+			"optional": true
+		},
+		"react-native-webview": {
+			"optional": true
+		}
+	},
+	"dependencies": {
+		"@expo/config-plugins": "^9.0.0"
+	}
+}
