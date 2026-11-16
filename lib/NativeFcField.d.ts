@@ -1,6 +1,6 @@
 import type { TurboModule } from "react-native";
 export interface Spec extends TurboModule {
-    /** FieldConfig as JSON-ish: platformUrl, appCode, clientIdentifier?, requireUnlock?, expiryWarningsMs?, keepAliveLeadMs?. */
+    /** FieldConfig as JSON-ish: platformUrl, appCode, clientIdentifier?, requireUnlock?, expiryWarningsMs?, keepAliveLeadMs?, allowedPlatformOrigins?. */
     configure(config: Object): Promise<void>;
     /** { state: "SignedOut" | "SignedIn" | "Locked", session: Session | null, device: DeviceRecord | null } */
     restore(): Promise<Object>;

@@ -74,7 +74,7 @@ export interface FieldClientConfig {
     keepAliveLeadMs?: number;
     /**
      * Additional platform origins an enrolment QR may name besides `platformUrl`'s. A QR for any other origin is
-     * refused with `PLATFORM_MISMATCH`. Honoured by the Android owner. Default: none.
+     * refused with `PLATFORM_MISMATCH`. Default: none.
      */
     allowedPlatformOrigins?: string[];
 }
@@ -114,7 +114,7 @@ export declare const FIELD_EVENT_NAMES: readonly FieldEventName[];
  * Every failure of a session method. `code` is the field-js code: a platform code (INVALID_CREDENTIALS,
  * INVALID_GRANT, SESSION_EXPIRED, DEVICE_REVOKED, PIN_RESET_REQUIRED, ...), a lower-case DPoP code (invalid_token, use_dpop_nonce),
  * a key/biometric code (KEY_INVALIDATED, BIOMETRIC_UNAVAILABLE, BIOMETRIC_CANCELLED, ...), or the library's own
- * (NETWORK, NOT_ENROLLED, IMPERSONATING, NOT_CONFIGURED, NOT_SUPPORTED_ON_IOS_YET, INTERNAL). Never carries a PIN.
+ * (NETWORK, NOT_ENROLLED, IMPERSONATING, NOT_CONFIGURED, CONFIG_MISMATCH, INTERNAL). Never carries a PIN.
  */
 export declare class FieldAuthError extends Error {
     readonly code: string;
@@ -145,8 +145,6 @@ export interface FieldClientOptions {
     native?: FcFieldNative;
     /** Defaults to `new NativeEventEmitter(native)`. */
     events?: NativeEventSource;
-    /** Defaults to react-native's Platform.OS. */
-    platform?: string;
     /** Defaults to globalThis.fetch. */
     fetch?: (url: string, init?: RequestInit) => Promise<Response>;
 }

@@ -1,6 +1,6 @@
 {
 	"name": "@flowcatalyst/field-react-native",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "React Native (New Architecture) bridge over the Android FieldSession, with the key/store module and WebView bridge host for @flowcatalyst/field-js",
 	"license": "Apache-2.0",
 	"repository": {
@@ -35,15 +35,13 @@
 		"README.md",
 		"!**/*.test.js",
 		"!android/src/test",
-		"!ios/Tests"
+		"!ios/Tests",
+		"!ios/Package.swift"
 	],
 	"codegenConfig": {
 		"name": "FcFieldSpec",
 		"type": "modules",
-		"jsSrcsDir": "src",
-		"android": {
-			"javaPackageName": "io.flowcatalyst.field"
-		}
+		"jsSrcsDir": "src"
 	},
 	"peerDependencies": {
 		"expo": ">=51",

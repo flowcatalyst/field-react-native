@@ -5,7 +5,7 @@ import type { Spec } from "./NativeFcField";
  * base64url strings. Native rejections carry `code`.
  */
 export type FcFieldNative = Spec;
-/** The key/store subset: what the WebView bridge and the key/store adapters use (also all iOS implements today). */
+/** The key/store subset: what the WebView bridge and the key/store adapters use. */
 export type KeyStoreNative = Pick<Spec, "getOrCreateDeviceKey" | "sign" | "deleteDeviceKey" | "storeGet" | "storeSet" | "storeDelete" | "biometricAvailable">;
 /** Test hook / manual wiring. */
 export declare function setNativeModule(m: FcFieldNative | undefined): void;
