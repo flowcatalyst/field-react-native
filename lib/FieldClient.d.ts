@@ -11,6 +11,10 @@ export interface Session {
         id: string;
         workerCode: string;
         name: string;
+        /** The version of the worker's photo; null when there is none, or photos are off. Follows every sign-in and refresh. */
+        photoVersion: string | null;
+        /** True only when the client lets a worker set their own photo and this is the worker's own session. */
+        canSetOwnPhoto: boolean;
     };
     actor: Actor | null;
     test: boolean;
@@ -21,6 +25,20 @@ export interface Session {
     idleExpiresAt: number;
     refreshExpiresAt: number;
     pinChangeRequired: boolean;
+}
+export type PhotoSize = "thumb" | "full";
+/** The worker's own photo as `getPhoto` reads it. `bytes` is the JPEG; null when `notModified`. */
+export interface WorkerPhoto {
+    bytes: Uint8Array | null;
+    contentType: string | null;
+    version: string | null;
+    /** True when `haveVersion` is still current: keep the bytes you hold. */
+    notModified: boolean;
+}
+export interface PhotoUpload {
+    bytes: Uint8Array;
+    /** JPEG, PNG or WebP; the platform decides from the bytes, so this may only agree. */
+    contentType?: string;
 }
 export interface DeviceRecord {
     deviceId: string;
@@ -176,6 +194,24 @@ export declare class FieldClient {
         currentPin: string;
         newPin: string;
     }): Promise<Session>;
+    /**
+     * The signed-in worker's own photo (thumb by default); null when there is none. Pass `haveVersion` to get
+     * `notModified` instead of bytes while it is current. Refusals: PHOTOS_DISABLED, TOO_MANY_REQUESTS (`retryAfterSeconds`).
+     * Bytes cross the bridge as base64url (one third larger); a thumb is about 5 KB, a full picture about 60 KB.
+     */
+    getPhoto(opts?: {
+        size?: PhotoSize;
+        haveVersion?: string | null;
+    }): Promise<WorkerPhoto | null>;
+    /**
+     * Sets the worker's own photo; needs `session.worker.canSetOwnPhoto`. Resolves the session with the new
+     * `worker.photoVersion`. Refusals come as codes: OWN_PHOTO_NOT_ALLOWED, IMPERSONATING, PHOTOS_DISABLED,
+     * PHOTOS_DISABLED_FOR_CLIENT, PHOTO_EMPTY, PHOTO_TOO_LARGE, PHOTO_UNSUPPORTED_TYPE, PHOTO_TYPE_MISMATCH,
+     * PHOTO_DIMENSIONS_TOO_LARGE, PHOTO_UNREADABLE, PHOTO_BUSY, TOO_MANY_REQUESTS.
+     */
+    setPhoto(photo: PhotoUpload): Promise<Session>;
+    /** Removes the worker's own photo (the same rule as setting it). Resolves the session. */
+    removePhoto(): Promise<Session>;
     logout(opts?: {
         scope?: "session" | "device-all";
     }): Promise<void>;

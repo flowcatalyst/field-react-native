@@ -25,7 +25,7 @@ Installed from git, not a registry: `"@flowcatalyst/field-react-native": "github
 ```json
 { "expo": { "plugins": [["@flowcatalyst/field-react-native", {
   "faceIdPermission": "Unlock the app with Face ID",
-  "fieldAndroidVersion": "0.3.0"
+  "fieldAndroidVersion": "0.4.0"
 }]] } }
 ```
 
@@ -40,7 +40,7 @@ idempotent. Needs a Groovy `android/build.gradle` (the Expo default).
 
 1. `minSdkVersion 26`; the host `Activity` must be a `FragmentActivity` (`ReactActivity` is).
 2. Add the Maven repository above to `allprojects.repositories` (with credentials). `io.flowcatalyst:field-android`
-   is on GitHub Packages; this bridge needs v0.3.0 or later (its default is the version it was built against). For local work on the library, a composite build in the app's
+   is on GitHub Packages; this bridge needs v0.4.0 or later, which has the worker's own photo (its default is the version it was built against). For local work on the library, a composite build in the app's
    `settings.gradle` also works: `includeBuild("../path/to/clients/field-android")` (it replaces the published
    coordinates).
 3. Autolinking registers `FcFieldPackage`. Override the library version with `ext.fieldAndroidVersion` in the root
@@ -182,6 +182,45 @@ await field.keepAlive(false);
 While on, the owner refreshes before the idle deadline. Turn it on only while the worker is genuinely busy. Use
 `ExpiryWarning` to ask for a new sign-in at a stop.
 
+### No signal: what happens to a session
+
+**A session is never ended by the device's clock.** `idleExpiresAt` and `refreshExpiresAt` only plan `keepAlive` and
+the expiry warnings. A session ends on the device when the platform refuses a refresh (`SessionEnded` with
+`SESSION_EXPIRED`, `INVALID_GRANT`, `DEVICE_REVOKED`, ...), when an `invalid_token` survives a refresh, or on logout.
+A call that cannot reach the platform fails with `NETWORK` and changes nothing: the worker stays signed in. This is
+the same on Android, iOS and in the browser (`@flowcatalyst/field-js`).
+
+So, for a device that works where there is no signal:
+
+- **The worker stays signed in for as long as the signal is away**, whatever the idle limit, and the app can go on
+  recording work into its own offline queue. A shared device never locks (Unlock is for PERSONAL sessions), and
+  unlock is local to the device.
+- **`keepAlive` does not help offline.** Its refresh needs the platform, so it fails with `NETWORK` and is tried
+  again; the session's deadline passes on the platform meanwhile.
+- **When the signal returns, the first request refreshes.** If the session's idle or absolute limit passed while the
+  device was away, the platform answers `SESSION_EXPIRED`, the session ends and the worker signs in again. Nothing
+  recorded offline is lost by that: keep the queue across the sign-in and send it afterwards (unsigned in the queue,
+  signed when sent, as above).
+- **Send each queued item only as the worker who recorded it.** On a shared device another worker may sign in first;
+  the first worker's items wait until that worker signs in on the device again. Keep the worker's id with each item.
+- **Sign-in needs the platform.** There is no offline sign-in: a worker who is signed out, or whose session has ended,
+  cannot sign in until there is signal. A hand-over between workers at a place with no signal is therefore not
+  possible on one device; plan the hand-over for where there is signal, or give each worker a device.
+
+The limits, each counted on the platform from the last refresh (idle) or the sign-in (absolute):
+
+| Session | Idle limit (default) | Absolute limit (default) |
+|---|---|---|
+| Shared device | `sharedIdleSecs` (900, 15 minutes) | 12 hours, fixed |
+| Personal device | `personalIdleSecs` (7200, 2 hours) | `shiftMaxSecs` (50400, 14 hours) |
+| Device not enrolled | `unenrolledIdleSecs` (900, 15 minutes) | 12 hours, fixed |
+
+The idle limits and `shiftMaxSecs` are the client's field policy (`PUT /api/field-policies/{clientId}`; each idle
+limit 60 to 86400 seconds, `shiftMaxSecs` 3600 to 86400). The policy belongs to the client, not to one application:
+a longer idle limit applies to every application's sessions for that client, and a caller confined to one application
+may not change it. A PUT replaces the whole policy (a value left out goes back to its default). Where a shared device is out of signal for longer than the idle limit and signing in again on its
+return is not acceptable, raise `sharedIdleSecs` for that client; the 12 hours stay.
+
 ### Foreground service
 
 A tracking service is plain Kotlin and uses `FieldSession` directly (`FieldSession.get(ctx, config).interceptor()`
@@ -226,6 +265,31 @@ headers, as this pod does, if it imports this module from Swift.
   fired before that are not replayed.
 - `keepAlive` and `noteNonce` return at once and are applied in call order (one ordered task chain, `ios/Ordering`).
 - The first `configure` also starts loading the stored session in the background, as on Android.
+
+## The worker's own photo
+
+`session.worker.photoVersion` (null when there is none, or photos are off) and `session.worker.canSetOwnPhoto` come with the
+session and survive restarts. A photo changed or removed elsewhere shows as a different `photoVersion` at the next sign-in
+or refresh, each time with a `SessionChanged` event; no separate event is raised.
+
+```ts
+const photo = await field.getPhoto({ size: "thumb", haveVersion: held }); // null: none; photo.notModified: keep yours
+if (field.session?.worker.canSetOwnPhoto) {
+	await field.setPhoto({ bytes, contentType: "image/jpeg" }); // JPEG, PNG or WebP, decided from the bytes
+	await field.removePhoto();
+}
+```
+
+Failures are `FieldAuthError`s carrying the platform's code (`OWN_PHOTO_NOT_ALLOWED`, `PHOTOS_DISABLED`,
+`PHOTOS_DISABLED_FOR_CLIENT`, `IMPERSONATING`, `PHOTO_EMPTY`, `PHOTO_TOO_LARGE`, `PHOTO_UNSUPPORTED_TYPE`,
+`PHOTO_TYPE_MISMATCH`, `PHOTO_DIMENSIONS_TOO_LARGE`, `PHOTO_UNREADABLE`, `PHOTO_BUSY`, `TOO_MANY_REQUESTS` with `retryAfterSeconds`).
+
+How the bytes cross the bridge: as base64url strings, the way `sign` already passes binary (the library has no other binary
+path, and the TurboModule codegen has no byte-array type). That costs one third more bytes in each direction plus one copy
+on each side: a 128 px thumb is about 5 KB (7 KB over the bridge), a 512 px picture about 60 KB (80 KB), and an upload is
+whatever the app picked (a 3 MB camera photo crosses as 4 MB; the platform accepts up to 10 MiB by default, so
+resize before uploading if you can). Both native sides decode and hand the bytes to field-android / field-ios, which sign and send them.
+The Android bridge needs the field-android release that has `getPhoto`/`setPhoto`/`removePhoto` (`ext.fieldAndroidVersion`).
 
 ## WebView bridge and key/store (protocol v1)
 
